@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+
 
 const Register = () => {
   const navigate = useNavigate();
@@ -18,14 +20,22 @@ const Register = () => {
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    console.log("Registered User:", form);
+  try {
+    const response = await axios.post(
+      "http://localhost:5000/api/register",
+      form
+    );
 
-    // Redirect to Login page after registration
-    navigate("/login");
-  };
+    alert(response.data.message);
+
+  } catch (error) {
+    alert(error.response?.data?.message || "Error occurred");
+  }
+};
+
 
   return (
     <div className="min-h-screen flex">

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,14 +18,25 @@ const Login = () => {
     });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    console.log("Login Data:", form);
+  try {
+    const response = await axios.post(
+      "http://localhost:5000/api/login",
+      form
+    );
 
-    // Redirect after login (temporary)
-    navigate("/");
-  };
+    // Save token
+    localStorage.setItem("token", response.data.token);
+
+    alert("Login successful");
+    navigate("/"); // or dashboard
+
+  } catch (error) {
+    alert(error.response?.data?.message || "Login failed");
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
