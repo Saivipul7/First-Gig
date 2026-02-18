@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-
 const Login = () => {
   const navigate = useNavigate();
 
@@ -19,24 +18,24 @@ const Login = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const response = await axios.post(
-      "http://localhost:5000/api/login",
-      form
-    );
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/login",
+        form
+      );
 
-    // Save token
-    localStorage.setItem("token", response.data.token);
+      // ✅ Save token correctly
+      localStorage.setItem("token", response.data.token);
 
-    alert("Login successful");
-    navigate("/"); // or dashboard
+      alert("Login successful");
+      navigate("/dashboard");
 
-  } catch (error) {
-    alert(error.response?.data?.message || "Login failed");
-  }
-};
+    } catch (error) {
+      alert(error.response?.data?.message || "Login failed");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
@@ -61,6 +60,7 @@ const Login = () => {
               type="email"
               name="email"
               placeholder="Enter your email"
+              value={form.email}
               onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
@@ -75,6 +75,7 @@ const Login = () => {
               type="password"
               name="password"
               placeholder="Enter your password"
+              value={form.password}
               onChange={handleChange}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"

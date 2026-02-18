@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 
-
 const Register = () => {
   const navigate = useNavigate();
 
@@ -10,7 +9,11 @@ const Register = () => {
     name: "",
     email: "",
     password: "",
-    role: "freelancer"
+    role: "freelancer",
+    profession: "",
+    skills: "",
+    experience: "",
+    bio: ""
   });
 
   const handleChange = (e) => {
@@ -20,27 +23,35 @@ const Register = () => {
     });
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  try {
-    const response = await axios.post(
-      "http://localhost:5000/api/register",
-      form
-    );
+    try {
+      const dataToSend = {
+        ...form,
+        skills:
+          form.role === "freelancer"
+            ? form.skills.split(",").map((skill) => skill.trim())
+            : []
+      };
 
-    alert(response.data.message);
+      const response = await axios.post(
+        "http://localhost:5000/api/register",
+        dataToSend
+      );
 
-  } catch (error) {
-    alert(error.response?.data?.message || "Error occurred");
-  }
-};
+      alert(response.data.message);
+      navigate("/login");
 
+    } catch (error) {
+      alert(error.response?.data?.message || "Error occurred");
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
 
-      {/* LEFT SIDE BRANDING */}
+      {/* LEFT SIDE */}
       <div className="hidden md:flex w-1/2 bg-blue-600 text-white items-center justify-center p-10">
         <div>
           <h1 className="text-4xl font-bold mb-4">
@@ -57,12 +68,9 @@ const handleSubmit = async (e) => {
       <div className="flex w-full md:w-1/2 items-center justify-center bg-gray-50 p-6">
         <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl">
 
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">
+          <h2 className="text-3xl font-bold text-gray-800 mb-6">
             Create Account
           </h2>
-          <p className="text-gray-500 mb-6">
-            Start your freelance journey today
-          </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -70,33 +78,78 @@ const handleSubmit = async (e) => {
               type="text"
               name="name"
               placeholder="Full Name"
+              value={form.name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
             />
 
             <input
               type="email"
               name="email"
               placeholder="Email Address"
+              value={form.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
             />
 
             <input
               type="password"
               name="password"
               placeholder="Password"
+              value={form.password}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
             />
 
+            {/* 🔥 Freelancer Fields */}
+            {form.role === "freelancer" && (
+              <>
+                <input
+                  type="text"
+                  name="profession"
+                  placeholder="Your Profession (Editor, Designer...)"
+                  value={form.profession}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+
+                <input
+                  type="text"
+                  name="skills"
+                  placeholder="Skills (comma separated)"
+                  value={form.skills}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+
+                <input
+                  type="text"
+                  name="experience"
+                  placeholder="Experience (e.g. 2 years)"
+                  value={form.experience}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+
+                <textarea
+                  name="bio"
+                  placeholder="Short Bio"
+                  value={form.bio}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </>
+            )}
+
+            {/* 🔥 Role Dropdown at Bottom */}
             <select
               name="role"
+              value={form.role}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition bg-white"
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
             >
               <option value="freelancer">Freelancer</option>
               <option value="client">Client</option>
@@ -104,7 +157,7 @@ const handleSubmit = async (e) => {
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
             >
               Register
             </button>
@@ -120,7 +173,6 @@ const handleSubmit = async (e) => {
 
         </div>
       </div>
-
     </div>
   );
 };

@@ -6,6 +6,9 @@ import User from "./models/User.js";
 import Gig from "./models/Gig.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import authMiddleware from "./authMiddleware.js";
+
+
 
 dotenv.config();
 
@@ -29,11 +32,20 @@ app.get("/", (req, res) => {
 });
 
 /* ================================
-   👤 Register API
+   👤 Register API (Updated)
 ================================ */
 app.post("/api/register", async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role,
+      profession,
+      skills,
+      experience,
+      bio
+    } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -46,7 +58,13 @@ app.post("/api/register", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role
+      role,
+
+      // 🔥 Only save freelancer fields if role is freelancer
+      profession: role === "freelancer" ? profession : undefined,
+      skills: role === "freelancer" ? skills : undefined,
+      experience: role === "freelancer" ? experience : undefined,
+      bio: role === "freelancer" ? bio : undefined
     });
 
     res.status(201).json({
@@ -93,6 +111,20 @@ app.post("/api/login", async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
+/* ================================
+   👤 Get Logged In User
+================================ */
+app.get("/api/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+
+    res.status(200).json(user);
+
+  } catch (error) {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
 
 /* ================================
    📌 Create Gig
