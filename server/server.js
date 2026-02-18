@@ -7,13 +7,11 @@ import jwt from "jsonwebtoken";
 
 import User from "./models/User.js";
 import Gig from "./models/Gig.js";
-import Application from "./models/Application.js";
 import Connection from "./models/Connection.js";
 import Message from "./models/Message.js";
 import authMiddleware from "./authMiddleware.js";
 
 dotenv.config();
-
 const app = express();
 
 app.use(cors());
@@ -30,7 +28,7 @@ mongoose.connect(process.env.MONGO_URI)
    🏠 Test Route
 ================================ */
 app.get("/", (req, res) => {
-  res.send("Backend is running 🚀");
+  res.send("Backend running 🚀");
 });
 
 /* ================================
@@ -50,13 +48,12 @@ app.post("/api/register", async (req, res) => {
     } = req.body;
 
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    if (existingUser)
       return res.status(400).json({ message: "User already exists" });
-    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await User.create({
+    const user = await User.create({
       name,
       email,
       password: hashedPassword,
@@ -67,10 +64,7 @@ app.post("/api/register", async (req, res) => {
       bio: role === "freelancer" ? bio : undefined,
     });
 
-    res.status(201).json({
-      message: "User registered successfully",
-      user: newUser,
-    });
+    res.status(201).json({ message: "Registered successfully", user });
 
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
@@ -85,14 +79,12 @@ app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) {
+    if (!user)
       return res.status(400).json({ message: "User not found" });
-    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
-    }
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -100,10 +92,7 @@ app.post("/api/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.status(200).json({
-      message: "Login successful",
-      token,
-    });
+    res.json({ message: "Login successful", token });
 
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
@@ -123,13 +112,12 @@ app.get("/api/me", authMiddleware, async (req, res) => {
 });
 
 /* ================================
-   📌 Create Gig (Client Only)
+   📌 Create Job (Client Only)
 ================================ */
 app.post("/api/gigs", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "client") {
-      return res.status(403).json({ message: "Only clients can create gigs" });
-    }
+    if (req.user.role !== "client")
+      return res.status(403).json({ message: "Only clients can post jobs" });
 
     const { title, description, budget, skills } = req.body;
 
@@ -149,11 +137,11 @@ app.post("/api/gigs", authMiddleware, async (req, res) => {
 });
 
 /* ================================
-   📌 Get All Gigs
+   📌 Get All Jobs
 ================================ */
 app.get("/api/gigs", async (req, res) => {
   try {
-    const gigs = await Gig.find().populate("createdBy", "name email");
+    const gigs = await Gig.find().populate("createdBy", "name role");
     res.json(gigs);
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
@@ -161,73 +149,29 @@ app.get("/api/gigs", async (req, res) => {
 });
 
 /* ================================
-   📌 Get My Gigs
-================================ */
-app.get("/api/my-gigs", authMiddleware, async (req, res) => {
-  try {
-    const gigs = await Gig.find({ createdBy: req.user.id });
-    res.json(gigs);
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
-});
-
-/* ================================
-   📩 Apply To Gig
-================================ */
-app.post("/api/apply", authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== "freelancer") {
-      return res.status(403).json({ message: "Only freelancers can apply" });
-    }
-
-    const { gigId, message } = req.body;
-
-    const existing = await Application.findOne({
-      gig: gigId,
-      freelancer: req.user.id,
-    });
-
-    if (existing) {
-      return res.status(400).json({ message: "Already applied" });
-    }
-
-    const application = await Application.create({
-      gig: gigId,
-      freelancer: req.user.id,
-      message,
-    });
-
-    res.status(201).json(application);
-
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
-});
-
-/* ================================
-   🤝 Send Connection Request
+   🤝 Send Connection Request (Both)
 ================================ */
 app.post("/api/connect", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "freelancer") {
-      return res.status(403).json({ message: "Only freelancers can send requests" });
-    }
+    const { receiverId } = req.body;
 
-    const { clientId } = req.body;
+    if (receiverId === req.user.id)
+      return res.status(400).json({ message: "Cannot connect to yourself" });
 
     const existing = await Connection.findOne({
-      client: clientId,
-      freelancer: req.user.id,
+      $or: [
+        { client: req.user.id, freelancer: receiverId },
+        { client: receiverId, freelancer: req.user.id }
+      ]
     });
 
-    if (existing) {
-      return res.status(400).json({ message: "Request already sent" });
-    }
+    if (existing)
+      return res.status(400).json({ message: "Connection already exists" });
 
     const connection = await Connection.create({
-      client: clientId,
-      freelancer: req.user.id,
+      client: req.user.role === "client" ? req.user.id : receiverId,
+      freelancer: req.user.role === "freelancer" ? req.user.id : receiverId,
+      status: "pending"
     });
 
     res.status(201).json(connection);
@@ -238,16 +182,20 @@ app.post("/api/connect", authMiddleware, async (req, res) => {
 });
 
 /* ================================
-   📥 Get Client Requests
+   📥 Get My Connections (All)
 ================================ */
-app.get("/api/client-requests", authMiddleware, async (req, res) => {
+app.get("/api/my-connections", authMiddleware, async (req, res) => {
   try {
-    const requests = await Connection.find({
-      client: req.user.id,
-      status: "pending",
-    }).populate("freelancer", "name profession skills bio");
+    const connections = await Connection.find({
+      $or: [
+        { client: req.user.id },
+        { freelancer: req.user.id }
+      ]
+    })
+      .populate("client", "name role")
+      .populate("freelancer", "name role");
 
-    res.json(requests);
+    res.json(connections);
 
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
@@ -261,8 +209,14 @@ app.patch("/api/connect/:id", authMiddleware, async (req, res) => {
   try {
     const connection = await Connection.findById(req.params.id);
 
-    if (!connection) {
+    if (!connection)
       return res.status(404).json({ message: "Not found" });
+
+    if (
+      connection.client.toString() !== req.user.id &&
+      connection.freelancer.toString() !== req.user.id
+    ) {
+      return res.status(403).json({ message: "Not authorized" });
     }
 
     connection.status = "accepted";
@@ -305,8 +259,8 @@ app.get("/api/messages/:userId", authMiddleware, async (req, res) => {
     const messages = await Message.find({
       $or: [
         { sender: req.user.id, receiver: otherUserId },
-        { sender: otherUserId, receiver: req.user.id },
-      ],
+        { sender: otherUserId, receiver: req.user.id }
+      ]
     }).sort({ createdAt: 1 });
 
     res.json(messages);
