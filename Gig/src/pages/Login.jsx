@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { API_URL } from "../api";
+import Teamwork from "../assets/Teamwork.jpg";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,27 +22,62 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // 1. Validation
+    if (!form.email || !form.password) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    // Allow admin email or Gmail accounts only
+    const isAdminEmail = form.email === "admin@firstgig.com";
+    const isGmail = form.email.endsWith("@gmail.com");
+
+    if (!isGmail && !isAdminEmail) {
+      alert("Only Gmail accounts are allowed.");
+      return;
+    }
+
+
+
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/login",
+        `${API_URL}/login`,
         form
       );
 
       // ✅ Save token correctly
       localStorage.setItem("token", response.data.token);
+      localStorage.setItem("role", response.data.role); // Save role for easy access
 
       alert("Login successful");
-      navigate("/dashboard");
+
+      // Redirect based on role
+      if (response.data.role === "admin") {
+        navigate("/admin-dashboard");
+      } else {
+        navigate("/dashboard");
+      }
 
     } catch (error) {
-      alert(error.response?.data?.message || "Login failed");
+      const msg = error.response?.data?.message;
+      if (msg === "User not found") {
+        alert("User not found. Please register.");
+      } else if (msg === "Invalid credentials") {
+        alert("Invalid credentials. Please check your password.");
+      } else {
+        alert("Login failed. Please try again.");
+      }
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
-      
-      <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md">
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center px-4 relative"
+      style={{ backgroundImage: `url(${Teamwork})` }}
+    >
+      <div className="absolute inset-0 bg-black/60"></div> {/* Dark overlay */}
+
+      <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md relative z-10">
 
         <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">
           Welcome Back 👋
@@ -63,7 +100,7 @@ const Login = () => {
               value={form.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:outline-none transition"
             />
           </div>
 
@@ -78,13 +115,13 @@ const Login = () => {
               value={form.password}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-500 focus:outline-none transition"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300"
+            className="w-full bg-zinc-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition duration-300"
           >
             Login
           </button>
@@ -95,7 +132,7 @@ const Login = () => {
           Don't have an account?{" "}
           <Link
             to="/register"
-            className="text-blue-600 font-medium hover:underline"
+            className="text-zinc-600 font-medium hover:underline"
           >
             Register
           </Link>
