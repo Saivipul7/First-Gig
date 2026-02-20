@@ -23,8 +23,14 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["freelancer", "client"],
+      enum: ["freelancer", "client", "admin"],
       required: true
+    },
+
+    category: {
+      type: String,
+      enum: ["Graphics & Design", "Programming & Tech", "Digital Marketing", "Video & Animation", "Writing & Translation", "Music & Audio", "Business", "Data"],
+      required: function () { return this.role === 'freelancer'; }
     },
 
     /* ================================

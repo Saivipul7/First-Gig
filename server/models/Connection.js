@@ -2,19 +2,19 @@ import mongoose from "mongoose";
 
 const connectionSchema = new mongoose.Schema(
   {
-    client: {
+    sender: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    freelancer: {
+    receiver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
     status: {
       type: String,
-      enum: ["pending", "accepted"],
+      enum: ["pending", "accepted", "rejected"],
       default: "pending",
     },
   },

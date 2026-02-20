@@ -14,9 +14,15 @@ const gigSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    category: {
+      type: String,
+      enum: ["Graphics & Design", "Programming & Tech", "Digital Marketing", "Video & Animation", "Writing & Translation", "Music & Audio", "Business", "Data"],
+      required: true
+    },
     skills: {
       type: [String], // Array of skills
-      required: true
+      required: false,
+      default: []
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

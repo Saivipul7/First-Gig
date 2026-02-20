@@ -12,27 +12,27 @@ import Message from "./models/Message.js";
 import authMiddleware from "./authMiddleware.js";
 
 dotenv.config();
-const app = express();
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
 /* ================================
-   🔥 MongoDB Connection
+   🔥 DATABASE
 ================================ */
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected ✅"))
-  .catch((err) => console.log("DB Error:", err.message));
+  .catch(err => console.log(err));
 
 /* ================================
-   🏠 Test Route
+   🏠 TEST
 ================================ */
 app.get("/", (req, res) => {
-  res.send("Backend running 🚀");
+  res.send("Backend Running 🚀");
 });
 
 /* ================================
-   👤 Register
+   👤 REGISTER
 ================================ */
 app.post("/api/register", async (req, res) => {
   try {
@@ -45,34 +45,36 @@ app.post("/api/register", async (req, res) => {
       skills,
       experience,
       bio,
+      category
     } = req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
+    const existing = await User.findOne({ email });
+    if (existing)
       return res.status(400).json({ message: "User already exists" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password: hashed,
       role,
-      profession: role === "freelancer" ? profession : undefined,
-      skills: role === "freelancer" ? skills : undefined,
-      experience: role === "freelancer" ? experience : undefined,
-      bio: role === "freelancer" ? bio : undefined,
+      profession,
+      skills,
+      experience,
+      bio,
+      category
     });
 
-    res.status(201).json({ message: "Registered successfully", user });
+    res.json(user);
 
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   🔐 Login
+   🔐 LOGIN
 ================================ */
 app.post("/api/login", async (req, res) => {
   try {
@@ -82,8 +84,8 @@ app.post("/api/login", async (req, res) => {
     if (!user)
       return res.status(400).json({ message: "User not found" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
       return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
@@ -92,189 +94,309 @@ app.post("/api/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ message: "Login successful", token });
+    res.json({ token, role: user.role });
 
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   👤 Get Logged In User
+   👤 GET LOGGED USER
 ================================ */
 app.get("/api/me", authMiddleware, async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password");
+  res.json(user);
+});
+
+/* ================================
+   ✏ EDIT USER PROFILE
+================================ */
+app.patch("/api/me", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const { name, profession, bio, skills, category } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (name) user.name = name;
+    if (profession !== undefined) user.profession = profession;
+    if (bio !== undefined) user.bio = bio;
+    if (skills) user.skills = skills;
+    if (category) user.category = category;
+
+    await user.save();
     res.json(user);
-  } catch (error) {
+
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   📌 Create Job (Client Only)
+   🧑‍💻 GET FREELANCERS (WITH FILTER)
+================================ */
+app.get("/api/freelancers", async (req, res) => {
+  try {
+    const { category, search } = req.query; // Added search
+    const filter = { role: "freelancer" };
+
+    if (category) filter.category = category;
+
+    if (search) {
+      const searchRegex = new RegExp(search, "i"); // Case-insensitive regex
+      filter.$or = [
+        { name: searchRegex },
+        { profession: searchRegex },
+        { skills: searchRegex }
+      ];
+    }
+
+    const freelancers = await User.find(filter).select("-password");
+    res.json(freelancers);
+  } catch {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+/* ================================
+   📌 CREATE REQUIREMENT (CLIENT)
 ================================ */
 app.post("/api/gigs", authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== "client")
-      return res.status(403).json({ message: "Only clients can post jobs" });
-
-    const { title, description, budget, skills } = req.body;
+      return res.status(403).json({ message: "Only clients can post" });
 
     const gig = await Gig.create({
-      title,
-      description,
-      budget,
-      skills,
-      createdBy: req.user.id,
+      ...req.body,
+      createdBy: req.user.id
     });
 
-    res.status(201).json(gig);
+    res.json(gig);
 
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   📌 Get All Jobs
+   📌 GET ALL REQUIREMENTS
 ================================ */
 app.get("/api/gigs", async (req, res) => {
+  const { category } = req.query;
+  const filter = category ? { category } : {};
+
+  const gigs = await Gig.find(filter)
+    .populate("createdBy", "name role");
+  res.json(gigs);
+});
+
+/* ================================
+   ✏ EDIT REQUIREMENT (CLIENT ONLY)
+================================ */
+app.patch("/api/gigs/:id", authMiddleware, async (req, res) => {
   try {
-    const gigs = await Gig.find().populate("createdBy", "name role");
-    res.json(gigs);
-  } catch (error) {
+    const gig = await Gig.findById(req.params.id);
+
+    if (!gig)
+      return res.status(404).json({ message: "Not found" });
+
+    if (gig.createdBy.toString() !== req.user.id)
+      return res.status(403).json({ message: "Not allowed" });
+
+    gig.title = req.body.title || gig.title;
+    gig.description = req.body.description || gig.description;
+    gig.budget = req.body.budget || gig.budget;
+
+    await gig.save();
+
+    res.json(gig);
+
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   🤝 Send Connection Request (Both)
+   🤝 SEND CONNECTION REQUEST
 ================================ */
 app.post("/api/connect", authMiddleware, async (req, res) => {
   try {
     const { receiverId } = req.body;
 
     if (receiverId === req.user.id)
-      return res.status(400).json({ message: "Cannot connect to yourself" });
+      return res.status(400).json({ message: "Cannot connect yourself" });
 
     const existing = await Connection.findOne({
       $or: [
-        { client: req.user.id, freelancer: receiverId },
-        { client: receiverId, freelancer: req.user.id }
+        { sender: req.user.id, receiver: receiverId },
+        { sender: receiverId, receiver: req.user.id }
       ]
     });
 
     if (existing)
-      return res.status(400).json({ message: "Connection already exists" });
+      return res.status(400).json({ message: "Already requested" });
 
     const connection = await Connection.create({
-      client: req.user.role === "client" ? req.user.id : receiverId,
-      freelancer: req.user.role === "freelancer" ? req.user.id : receiverId,
+      sender: req.user.id,
+      receiver: receiverId,
       status: "pending"
     });
 
-    res.status(201).json(connection);
+    res.json(connection);
 
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   📥 Get My Connections (All)
+   📥 GET MY CONNECTIONS
 ================================ */
 app.get("/api/my-connections", authMiddleware, async (req, res) => {
-  try {
-    const connections = await Connection.find({
-      $or: [
-        { client: req.user.id },
-        { freelancer: req.user.id }
-      ]
-    })
-      .populate("client", "name role")
-      .populate("freelancer", "name role");
 
-    res.json(connections);
+  const connections = await Connection.find({
+    $or: [
+      { sender: req.user.id },
+      { receiver: req.user.id }
+    ]
+  })
+    .populate("sender", "name role profession skills bio")
+    .populate("receiver", "name role profession skills bio");
 
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
+  res.json(connections);
 });
 
 /* ================================
-   ✅ Accept Connection
+   ✅ ACCEPT CONNECTION
 ================================ */
 app.patch("/api/connect/:id", authMiddleware, async (req, res) => {
-  try {
-    const connection = await Connection.findById(req.params.id);
 
-    if (!connection)
-      return res.status(404).json({ message: "Not found" });
+  const connection = await Connection.findById(req.params.id);
 
-    if (
-      connection.client.toString() !== req.user.id &&
-      connection.freelancer.toString() !== req.user.id
-    ) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+  if (!connection)
+    return res.status(404).json({ message: "Not found" });
 
-    connection.status = "accepted";
-    await connection.save();
+  // ONLY RECEIVER CAN ACCEPT
+  if (connection.receiver.toString() !== req.user.id)
+    return res.status(403).json({ message: "Not allowed" });
 
-    res.json({ message: "Connection accepted" });
+  connection.status = "accepted";
+  await connection.save();
 
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
+  res.json({ message: "Connection Accepted" });
 });
 
 /* ================================
-   💬 Send Message
+   💬 SEND MESSAGE (ONLY IF CONNECTED)
 ================================ */
 app.post("/api/message", authMiddleware, async (req, res) => {
-  try {
-    const { receiverId, text } = req.body;
 
-    const message = await Message.create({
-      sender: req.user.id,
-      receiver: receiverId,
-      text,
+  const { receiverId, text } = req.body;
+
+  const connection = await Connection.findOne({
+    $or: [
+      { sender: req.user.id, receiver: receiverId, status: "accepted" },
+      { sender: receiverId, receiver: req.user.id, status: "accepted" }
+    ]
+  });
+
+  if (!connection)
+    return res.status(403).json({ message: "Not connected" });
+
+  const message = await Message.create({
+    sender: req.user.id,
+    receiver: receiverId,
+    text
+  });
+
+  res.json(message);
+});
+
+/* ================================
+   💬 GET CHAT
+================================ */
+app.get("/api/messages/:id", authMiddleware, async (req, res) => {
+
+  const messages = await Message.find({
+    $or: [
+      { sender: req.user.id, receiver: req.params.id },
+      { sender: req.params.id, receiver: req.user.id }
+    ]
+  }).sort({ createdAt: 1 });
+
+  res.json(messages);
+});
+
+/* ================================
+   👑 ADMIN ROUTES
+================================ */
+import adminMiddleware from "./adminMiddleware.js";
+
+// GET STATS
+app.get("/api/admin/stats", adminMiddleware, async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalGigs = await Gig.countDocuments();
+    const totalConnections = await Connection.countDocuments();
+
+    res.json({
+      totalUsers,
+      totalGigs,
+      totalConnections
+    });
+  } catch {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// GET ALL USERS
+app.get("/api/admin/users", adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    res.json(users);
+  } catch {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+// DELETE USER
+app.delete("/api/admin/users/:id", adminMiddleware, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "User deleted" });
+  } catch {
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+/* ================================
+   🌱 SEED ADMIN (RUN ONCE)
+================================ */
+app.post("/api/seed-admin", async (req, res) => {
+  try {
+    const existing = await User.findOne({ email: "admin@firstgig.com" });
+    if (existing) return res.status(400).json({ message: "Admin already exists" });
+
+    const hashed = await bcrypt.hash("admin123", 10);
+    const admin = await User.create({
+      name: "Super Admin",
+      email: "admin@firstgig.com",
+      password: hashed,
+      role: "admin"
     });
 
-    res.status(201).json(message);
-
-  } catch (error) {
+    res.json(admin);
+  } catch {
     res.status(500).json({ message: "Server Error" });
   }
 });
 
 /* ================================
-   💬 Get Conversation
-================================ */
-app.get("/api/messages/:userId", authMiddleware, async (req, res) => {
-  try {
-    const otherUserId = req.params.userId;
-
-    const messages = await Message.find({
-      $or: [
-        { sender: req.user.id, receiver: otherUserId },
-        { sender: otherUserId, receiver: req.user.id }
-      ]
-    }).sort({ createdAt: 1 });
-
-    res.json(messages);
-
-  } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
-});
-
-/* ================================
-   🚀 Start Server
+   🚀 START SERVER
 ================================ */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on ${PORT}`);
 });
