@@ -10,7 +10,7 @@ const Home = () => {
         <nav className="absolute top-0 left-0 w-full z-20 flex items-center justify-between px-8 py-4 text-white bg-black/40 backdrop-blur-md">
 
           {/* Logo */}
-          <h1 className="text-xl font-bold">FirstGig 🚀</h1>
+          <h1 className="text-xl font-bold">FirstGig </h1>
 
           {/* Nav Links */}
           <div className="flex items-center space-x-6 text-sm font-medium">
@@ -49,7 +49,7 @@ const Home = () => {
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen text-white text-center px-6">
 
           <h1 className="text-5xl font-bold mb-6">
-            Launch Your First Freelance Career 🚀
+            Launch Your First Freelance Career 
           </h1>
 
           <p className="mb-8 max-w-xl text-lg text-zinc-300">
